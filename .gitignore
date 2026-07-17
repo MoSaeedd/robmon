@@ -3,3 +3,4 @@
 /control-plane/node_modules
 /web/node_modules
 /dist
+.DS_Store
