@@ -1,4 +1,4 @@
-# ROSMesh OS — Detailed Feature Requirements and Development Breakdown
+# RobMon: a robot management platform for monitoring, deployment and connectivity. It aims to provide a robust, scalable secure mesh network connection between a fleet of robots. It also provedes an easy way to manage access to specific users /ROS topics and services.
 
 ## Implementation Strategy
 
