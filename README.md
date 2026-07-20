@@ -42,6 +42,22 @@ Each phase should produce a usable demonstration.
    cargo run
    ```
 
+### Testing
+
+The project keeps package tests in dedicated folders, not inside application source files.
+
+- Control plane tests are located in `control-plane/test/`
+- The automation test script is `control-plane/test/auth-login.test.js`
+- Run it from the control plane package:
+
+```bash
+cd control-plane
+npm install
+npm test
+```
+
+You can add future package tests in similar folders, for example `web/test/` or `agent/tests/`.
+
 ### Docker
 
 1. Build all services:
@@ -271,575 +287,52 @@ If your control plane uses a different host or port, set `CONTROL_PLANE_URL` acc
 
 ---
 
-# Phase 3 — ROS 2 Discovery Monitoring
+## Authentication and service discovery
 
-## Goal
+The control plane now supports a lightweight login flow for service registration.
 
-Understand what is running inside the robot.
+### Login
 
----
+Request a token using:
 
-# Feature 3.1 — ROS Node Discovery
-
-Requirements:
-
-Detect:
-
-* Node names
-* Namespaces
-* Node lifetime
-
-Example:
-
-```
-Robot:
-
-Nodes:
-
-/navigation
-/localization
-/camera_driver
+```bash
+curl -X POST http://localhost:8080/api/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"password"}'
 ```
 
----
+The response contains an `accessToken` for service registration and discovery.
 
-# Feature 3.2 — Topic Discovery
+### Register a service
 
-Requirements:
+Use the token to register a backend service:
 
-Track:
-
-* Topic names
-* Message types
-* Publishers
-* Subscribers
-
-Example:
-
+```bash
+curl -X POST http://localhost:8080/api/services \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer $TOKEN' \
+  -d '{"serviceName":"robmon:80","host":"10.0.0.5","port":80}'
 ```
-Topic:
 
-/cmd_vel
+### Discover services
 
-Publisher:
+Then list discovered mesh-backed services:
 
-navigation_node
-
-Subscriber:
-
-controller_node
+```bash
+curl -H 'Authorization: Bearer $TOKEN' http://localhost:8080/api/services
 ```
 
 ---
 
-# Feature 3.3 — Topic Activity Monitoring
+## Current feature checklist
 
-Requirements:
+- [x] Local robot observability dashboard with live fleet overview and robot detail modal
+- [x] Rust agent that publishes state to the control plane
+- [ ] ROS 2 discovery, graph visualization, and remote operations
+- [ ] Software deployment, rollback, and mesh networking with NAT traversal
+- [ ] SSO / 2FA authentication and advanced fleet security policies
+- [ ] Zero-trust identity, certificate-based robot identity, and secure access control
 
-Track:
+## Future roadmap
 
-* Last message timestamp
-* Message frequency
-* Message count
-
-Example:
-
-```
-Topic:
-
-/odom
-
-Rate:
-
-50 Hz
-
-Last update:
-
-12 ms ago
-```
-
----
-
-# Feature 3.4 — ROS Graph Storage
-
-Requirements:
-
-Store historical graph state.
-
-Examples:
-
-* Node appeared
-* Node disappeared
-* Topic created
-* Topic removed
-
-Example:
-
-```
-14:32
-
-navigation_node started publishing:
-
-/cmd_vel
-```
-
----
-
-# Phase 4 — Fleet Dashboard
-
-## Goal
-
-Visualize all robots.
-
----
-
-# Feature 4.1 — Fleet Overview
-
-Display:
-
-* Robot list
-* Online/offline status
-* Health state
-
-Example:
-
-```
-Fleet
-
-Robot 01   ONLINE
-Robot 02   WARNING
-Robot 03   OFFLINE
-```
-
----
-
-# Feature 4.2 — Robot Detail Page
-
-Display:
-
-Hardware:
-
-* CPU
-* Memory
-* Disk
-
-ROS:
-
-* Nodes
-* Topics
-* Activity
-
-Software:
-
-* Agent version
-* ROS version
-
----
-
-# Feature 4.3 — ROS Graph Visualization
-
-Display:
-
-Interactive graph:
-
-```
-camera_node
-
-    |
-    |
-/camera/image
-
-    |
-    |
-
-perception_node
-```
-
----
-
-# Phase 5 — Remote Operations
-
-## Goal
-
-Allow engineers to manage robots remotely.
-
----
-
-# Feature 5.1 — Log Collection
-
-Requirements:
-
-Collect:
-
-* system logs
-* ROS logs
-* application logs
-
-Support:
-
-* search
-* filtering
-* download
-
----
-
-# Feature 5.2 — Remote Command Execution
-
-Requirements:
-
-Execute approved commands:
-
-Examples:
-
-```
-restart navigation node
-
-collect diagnostics
-
-restart service
-```
-
-Security:
-
-* authenticated requests
-* audit trail
-
----
-
-# Feature 5.3 — Remote Terminal
-
-Provide:
-
-* secure shell access
-* session logging
-* permission control
-
-Example:
-
-```
-Engineer
-
-  |
-Dashboard
-
-  |
-Robot terminal
-```
-
----
-
-# Phase 6 — Software Deployment
-
-## Goal
-
-Manage robot software versions.
-
----
-
-# Feature 6.1 — Application Inventory
-
-Track:
-
-* ROS packages
-* Docker images
-* Git commits
-* configuration versions
-
-Example:
-
-```
-Robot 01
-
-Navigation:
-v2.1.5
-
-Camera:
-v1.4.0
-```
-
----
-
-# Feature 6.2 — Software Deployment
-
-Requirements:
-
-Support:
-
-* package installation
-* Docker deployment
-* configuration updates
-
----
-
-# Feature 6.3 — Rollback
-
-Requirements:
-
-Store previous versions.
-
-Example:
-
-```
-Deployment failed
-
-Rollback:
-
-v2.1.5 -> v2.1.4
-```
-
----
-
-# Phase 7 — Robot Identity and Security
-
-## Goal
-
-Move from device trust to zero trust.
-
----
-
-# Feature 7.1 — Cryptographic Robot Identity
-
-Requirements:
-
-Each robot has:
-
-* public/private key pair
-* identity certificate
-* registration state
-
----
-
-# Feature 7.1.1 — Two-factor authentication
-
-Requirements:
-
-* Strong user authentication for dashboard and remote actions
-* One-time passwords or hardware-backed second factor
-* Login flows that require both credentials and a second verification step
-* Audit logs for 2FA validation events
-
----
-
-# Feature 7.2 — Access Policies
-
-Policies apply to:
-
-* robots
-* users
-* processes
-* ROS nodes
-* topics
-
-Example:
-
-```yaml
-robot:
- warehouse_01
-
-allow:
-
- navigation:
-   publish:
-     - /cmd_vel
-```
-
----
-
-# Feature 7.3 — ROS Topic Authorization
-
-Requirements:
-
-Allow:
-
-* topic allow lists
-* topic deny lists
-* publisher restrictions
-
-Example:
-
-```
-Allowed:
-
-navigation_node
-   -> /cmd_vel
-
-
-Denied:
-
-unknown_node
-   -> /cmd_vel
-```
-
----
-
-# Feature 7.4 — Process Identity
-
-Map:
-
-```
-Linux process
-
-      ↓
-
-ROS node
-
-      ↓
-
-Topic permissions
-```
-
-Collect:
-
-* PID
-* executable
-* container ID
-* user
-
----
-
-# Phase 8 — Mesh Networking Layer
-
-## Goal
-
-Build the Tailscale/ZeroTier-like foundation.
-
----
-
-# Feature 8.1 — Virtual Network Interface
-
-Requirements:
-
-Create:
-
-```
-rosmesh0
-```
-
-Capabilities:
-
-* virtual IP addressing
-* packet routing
-* encrypted traffic
-
----
-
-# Feature 8.2 — Peer Discovery
-
-Requirements:
-
-Nodes discover:
-
-* available peers
-* public endpoints
-* connectivity state
-
----
-
-# Feature 8.3 — Encrypted Tunnel
-
-Requirements:
-
-Support:
-
-* authenticated encryption
-* key exchange
-* session rotation
-
----
-
-# Feature 8.4 — Full Mesh Connectivity
-
-Requirements:
-
-Support:
-
-* many-to-many communication
-* direct peer connections
-* relay fallback
-
-Example:
-
-```
-Robot A
- |
- +--- Robot B
- |
- +--- Robot C
-```
-
----
-
-# Phase 9 — Advanced Fleet Security
-
-## Goal
-
-Create a robotics-native zero trust network.
-
----
-
-## Feature 9.1 — Network Policies
-
-Control:
-
-* robot-to-robot communication
-* service access
-* external access
-
----
-
-## Feature 9.2 — ROS Security Policies
-
-Control:
-
-* who publishes topics
-* who subscribes
-* which processes can command robots
-
----
-
-## Feature 9.3 — Security Audit Dashboard
-
-Display:
-
-* blocked actions
-* authentication events
-* policy changes
-
----
-
-# Final Milestone Demo
-
-A complete demonstration should show:
-
-## Three simulated robots
-
-Each robot:
-
-* Runs ROS 2
-* Runs ROSMesh agent
-* Joins secure mesh
-
-Demonstrate:
-
-1. Dashboard discovers robots.
-2. ROS graph appears automatically.
-3. Health metrics update.
-4. Remote logs collected.
-5. Software deployment succeeds.
-6. Unauthorized `/cmd_vel` publisher is blocked.
-7. Robots communicate through encrypted mesh.
-8. Network topology is visualized.
-
----
-
-# Final Capability
-
-The finished system demonstrates:
-
-* Rust systems programming
-* Linux networking
-* Distributed systems
-* ROS 2 middleware
-* Security engineering
-* Cloud control planes
-* Fleet operations
+The detailed roadmap and feature map have been moved to [FUTURE_MAP.md](FUTURE_MAP.md).
