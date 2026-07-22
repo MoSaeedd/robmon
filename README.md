@@ -1,4 +1,4 @@
-# RobMon: a robot management platform for monitoring, deployment and connectivity. It aims to provide a robust, scalable secure mesh network connection between a fleet of robots. It also provedes an easy way to manage access to specific users /ROS topics and services.
+# RobMon: a robot management platform for monitoring, deployment and connectivity. It aims to provide a robust and scalable secure mesh network connection between a fleet of robots. It also provides an easy way for user access management as well as ROS topic and service permissions. 
 
 ## Implementation Strategy
 
@@ -60,17 +60,27 @@ You can add future package tests in similar folders, for example `web/test/` or 
 
 ### Docker
 
-1. Build all services:
-   ```bash
-   docker compose build
-   ```
-2. Run all services:
-   ```bash
-   docker compose up
-   ```
+Build and run all services:
+
+```bash
+docker compose build
+docker compose up
+```
 
 - Control plane: http://localhost:8080
 - Web dashboard: http://localhost:5173
+
+To build and run only the agent container (with the control plane already running locally):
+
+```bash
+docker build -t robmon-agent ./agent
+docker run --rm \
+  -e CONTROL_PLANE_URL=http://host.docker.internal:8080 \
+  -e RUST_LOG=info \
+  robmon-agent
+```
+
+On macOS, `host.docker.internal` lets the container reach services running on your machine. If your control plane uses a different host or port, set `CONTROL_PLANE_URL` accordingly.
 
 ---
 
@@ -88,30 +98,6 @@ This repository contains a lightweight observability platform with:
 Implemented pieces include local observability, robot state publishing, authentication, and logout support for the agent/control plane.
 
 The detailed roadmap and future feature planning now live in [FUTURE_MAP.md](FUTURE_MAP.md).
-
----
-
-# Docker
-
-Build the Docker image in the project root:
-
-```bash
-cd /Users/mohamedaboeljereed/Projects/robmon
-docker build -t rosmesh-agent .
-```
-
-Run the container and point the agent at the host machine control plane:
-
-```bash
-docker run --rm \
-  -e CONTROL_PLANE_URL=http://host.docker.internal:8080 \
-  -e RUST_LOG=info \
-  rosmesh-agent
-```
-
-On macOS, `host.docker.internal` lets the container reach services running on your machine.
-
-If your control plane uses a different host or port, set `CONTROL_PLANE_URL` accordingly.
 
 ---
 

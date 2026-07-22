@@ -105,7 +105,7 @@ async fn main() -> Result<()> {
     });
 
     let control_plane_url = control_plane_url();
-    info!("ROSMesh agent starting: {}", agent_state.metadata.robot_id);
+    info!("RobMon agent starting: {}", agent_state.metadata.robot_id);
     info!("Using control plane: {}", control_plane_url);
     let client = Client::builder().timeout(Duration::from_secs(10)).build()?;
     if env::args().any(|arg| arg == "--logout") {
@@ -178,7 +178,7 @@ fn create_initial_state() -> AgentState {
 }
 
 fn get_state_path() -> Result<PathBuf> {
-    let project_dirs = ProjectDirs::from("com", "rosmesh", "robmon")
+    let project_dirs = ProjectDirs::from("com", "robmon", "agent")
         .ok_or("Unable to derive XDG project directories")?;
     let data_dir = project_dirs.data_dir();
     fs::create_dir_all(data_dir)?;
@@ -186,7 +186,7 @@ fn get_state_path() -> Result<PathBuf> {
 }
 
 fn get_token_path() -> Result<PathBuf> {
-    let project_dirs = ProjectDirs::from("com", "rosmesh", "robmon")
+    let project_dirs = ProjectDirs::from("com", "robmon", "agent")
         .ok_or("Unable to derive XDG project directories")?;
     let data_dir = project_dirs.data_dir();
     fs::create_dir_all(data_dir)?;

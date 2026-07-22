@@ -11,7 +11,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const SECRET = process.env.JWT_SECRET || 'rosmesh-dev-secret';
+const SECRET = process.env.JWT_SECRET || 'robmon-dev-secret';
 const dataDir = path.join(__dirname, 'data');
 fs.mkdirSync(dataDir, { recursive: true });
 

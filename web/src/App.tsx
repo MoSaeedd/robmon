@@ -106,26 +106,26 @@ function formatBytes(bytes: number) {
 }
 
 const IMAGE_OPTIONS = [
-  'ghcr.io/rosmesh/robot-agent:latest',
-  'ghcr.io/rosmesh/robot-agent:stable',
-  'ghcr.io/rosmesh/robot-agent:dev',
+  'ghcr.io/robmon/robot-agent:latest',
+  'ghcr.io/robmon/robot-agent:stable',
+  'ghcr.io/robmon/robot-agent:dev',
 ];
 
-const NETWORK_OPTIONS = ['rosmesh0', 'eth0', 'wlan0'];
+const NETWORK_OPTIONS = ['robmon0', 'eth0', 'wlan0'];
 const DOMAIN_OPTIONS = [0, 1, 2, 3, 101];
 
 const ROS_CONFIG_OPTIONS = [
   {
     label: 'Default ROS2 network',
-    value: 'ros__parameters:\n  use_sim_time: false\nnetwork:\n  interface: rosmesh0',
+    value: 'ros__parameters:\n  use_sim_time: false\nnetwork:\n  interface: robmon0',
   },
   {
     label: 'Secure ROS2 domain',
-    value: 'ros__parameters:\n  use_sim_time: false\nsecurity:\n  enabled: true\nnetwork:\n  interface: rosmesh0',
+    value: 'ros__parameters:\n  use_sim_time: false\nsecurity:\n  enabled: true\nnetwork:\n  interface: robmon0',
   },
   {
     label: 'Simulation mode',
-    value: 'ros__parameters:\n  use_sim_time: true\nnetwork:\n  interface: rosmesh0',
+    value: 'ros__parameters:\n  use_sim_time: true\nnetwork:\n  interface: robmon0',
   },
   {
     label: 'Custom config',
@@ -134,9 +134,9 @@ const ROS_CONFIG_OPTIONS = [
 ];
 
 const DEFAULT_DEPLOY: DeployConfig = {
-  image: 'ghcr.io/rosmesh/robot-agent:latest',
+  image: 'ghcr.io/robmon/robot-agent:latest',
   ros_domain: 0,
-  network_interface: 'rosmesh0',
+  network_interface: 'robmon0',
   ros_config: ROS_CONFIG_OPTIONS[0].value,
   custom_ros_config: '',
 };
@@ -264,7 +264,7 @@ function App() {
   return (
     <div className="app-shell">
       <header>
-        <h1>ROSMesh Dashboard</h1>
+        <h1>RobMon Dashboard</h1>
         <p>Unified robot status, telemetry, and deployment control.</p>
       </header>
       <section className="hero-panel">
@@ -506,7 +506,7 @@ function App() {
               </form>
               {deployMessage && <div className="deploy-message">{deployMessage}</div>}
               <div className="deploy-hint">
-                Example image: <a href="https://ghcr.io/rosmesh/robot-agent:latest" target="_blank" rel="noreferrer">ghcr.io/rosmesh/robot-agent:latest</a>
+                Example image: <a href="https://ghcr.io/robmon/robot-agent:latest" target="_blank" rel="noreferrer">ghcr.io/robmon/robot-agent:latest</a>
               </div>
             </section>
           </div>

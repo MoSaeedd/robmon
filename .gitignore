@@ -3,4 +3,5 @@
 /control-plane/node_modules
 /web/node_modules
 /dist
+/control-plane/data/db.json
 .DS_Store

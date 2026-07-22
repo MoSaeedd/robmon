@@ -1,8 +1,8 @@
 # RobMon Future Roadmap
 
-This file contains the detailed roadmap and feature map for the ROSMesh project.
+This file contains the detailed roadmap and feature map for the RobMon project.
 
-# Phase 1 — ROSMesh Agent Foundation
+# Phase 1 — RobMon Agent Foundation
 
 ## Goal
 
@@ -50,7 +50,7 @@ Service:
 Example:
 
 ```
-rosmesh-agent.service
+robmon-agent.service
 
 Status:
 active (running)
@@ -65,7 +65,7 @@ PID:
 
 ### Description
 
-Each robot registers with the ROSMesh platform.
+Each robot registers with the RobMon platform.
 
 ### Requirements
 
@@ -632,7 +632,7 @@ Requirements:
 Create:
 
 ```
-rosmesh0
+robmon0
 ```
 
 Capabilities:
@@ -736,7 +736,7 @@ A complete demonstration should show:
 Each robot:
 
 * Runs ROS 2
-* Runs ROSMesh agent
+* Runs RobMon agent
 * Joins secure mesh
 
 Demonstrate:
