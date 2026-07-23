@@ -1,17 +1,55 @@
 [package]
-name = "robmon"
+name = "robmon-agent"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
+description = "RobMon Agent - Robot monitoring and management daemon"
+license = "MIT"
+repository = "https://github.com/rosmesh/robmon"
 
 [dependencies]
-tokio = { version = "1.41", features = ["rt-multi-thread", "macros", "process"] }
-reqwest = { version = "0.11", features = ["json", "rustls-tls"] }
+# Async runtime
+tokio = { version = "1.41", features = ["rt-multi-thread", "macros", "process", "signal"] }
+
+# HTTP client
+reqwest = { version = "0.11", features = ["json", "rustls-tls", "stream"] }
+
+# Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+
+# System monitoring
 sysinfo = { version = "0.33", features = ["serde"] }
-directories = "5.0"
-uuid = { version = "1.4", features = ["v4"] }
 hostname = "0.4"
-chrono = { version = "0.4", features = ["serde", "alloc"] }
+
+# Configuration & CLI
+clap = { version = "4.5", features = ["derive", "env"] }
+directories = "5.0"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# UUIDs
+uuid = { version = "1.4", features = ["v4", "serde"] }
+
+# Date/time
+chrono = { version = "0.4.45", features = ["serde", "clock"] }
+
+# Logging & observability
 log = "0.4"
 env_logger = "0.10"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Retry logic for network calls
+backoff = { version = "0.4", features = ["tokio"] }
+
+# Password input
+rpassword = "7.0"
+x25519-dalek = { version = "2", features = ["static_secrets", "reusable_secrets"] }
+base64 = "0.22"
+rand = "0.8"
+hex = "0.4"
+
+# Atomic types
+# tokio-sync is not needed here; tokio's async primitives are used directly.
