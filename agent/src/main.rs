@@ -8,6 +8,8 @@ use sysinfo::System;
 use tokio::{process::Command, time};
 use uuid::Uuid;
 
+use robmon_agent::crypto::{self, WireGuardKeypair};
+
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 const AGENT_VERSION: &str = "0.1.0";
@@ -54,12 +56,36 @@ struct SystemMetrics {
     load_average: LoadAverage,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct MeshPeer {
+    node_id: String,
+    hostname: String,
+    mesh_ip: String,
+    public_ip: String,
+    public_port: u16,
+    online: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+struct MeshState {
+    mesh_ip: Option<String>,
+    public_ip: Option<String>,
+    public_port: Option<u16>,
+    subnet: Option<String>,
+    gateway: Option<String>,
+    peers: Vec<MeshPeer>,
+    #[serde(default)]
+    public_key: Option<String>,
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 struct AgentState {
     metadata: RobotMetadata,
     metrics: SystemMetrics,
     last_seen: String,
     command_history: Vec<String>,
+    #[serde(default)]
+    mesh: MeshState,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -94,15 +120,68 @@ struct ServiceRegistration {
     meta: HashMap<String, String>,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+struct MeshJoinPayload {
+    node_id: String,
+    hostname: String,
+    public_ip: String,
+    public_port: u16,
+    #[serde(default)]
+    public_key: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct MeshJoinResponse {
+    mesh_ip: String,
+    subnet: String,
+    gateway: String,
+    peers: Vec<MeshPeer>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct MeshHeartbeatPayload {
+    node_id: String,
+    public_ip: String,
+    public_port: u16,
+    #[serde(default)]
+    public_key: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct MeshHeartbeatResponse {
+    mesh_ip: String,
+    peers: Vec<MeshPeer>,
+}
+
+fn get_data_dir() -> Result<PathBuf> {
+    let project_dirs = ProjectDirs::from("com", "robmon", "agent")
+        .ok_or("Unable to derive XDG project directories")?;
+    let data_dir = project_dirs.data_dir();
+    fs::create_dir_all(data_dir)?;
+    Ok(data_dir.to_path_buf())
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     env_logger::init();
 
-    let state_path = get_state_path()?;
+    let data_dir = get_data_dir()?;
+    let state_path = data_dir.join("agent_state.json");
     let mut agent_state = load_state(&state_path).unwrap_or_else(|err| {
         warn!("Unable to load saved state: {}. Creating new agent state.", err);
         create_initial_state()
     });
+
+    // ── Mesh VPN: ensure a WireGuard keypair exists ─────────────────
+    let mesh_keypair = ensure_mesh_keypair(&data_dir)?;
+    println!(
+        "🔑 Mesh VPN public key: {}",
+        mesh_keypair.public_key_base64()
+    );
+    println!(
+        "   Private key stored at: {:?}",
+        data_dir.join("mesh_private_key.json")
+    );
 
     let control_plane_url = control_plane_url();
     info!("RobMon agent starting: {}", agent_state.metadata.robot_id);
@@ -118,14 +197,26 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
+    // Store public key in mesh state for mesh join
+    agent_state.mesh.public_key = Some(mesh_keypair.public_key_base64());
+
     maybe_register_service(&client, &control_plane_url, &token).await?;
+    join_mesh(&client, &control_plane_url, &token, &mut agent_state).await?;
 
     let mut system = System::new_all();
+    let mut loop_tick: u64 = 0;
 
     loop {
         let metrics = collect_system_metrics(&mut system);
         agent_state.metrics = metrics.clone();
         agent_state.last_seen = chrono::Utc::now().to_rfc3339();
+
+        if loop_tick % 10 == 0 {
+            if let Err(err) = refresh_mesh(&client, &control_plane_url, &token, &mut agent_state).await {
+                warn!("Mesh sync failed: {}", err);
+            }
+        }
+        loop_tick += 1;
 
         if let Err(err) = save_state(&state_path, &agent_state) {
             warn!("Failed to persist local state: {}", err);
@@ -153,6 +244,25 @@ async fn main() -> Result<()> {
     }
 }
 
+/// Ensure a WireGuard keypair exists on disk, generating one if needed.
+fn ensure_mesh_keypair(data_dir: &PathBuf) -> Result<WireGuardKeypair> {
+    match crypto::load_keypair(data_dir)? {
+        Some(kp) => {
+            info!("Loaded existing mesh VPN keypair");
+            println!("   ✅ Loaded existing mesh keypair");
+            Ok(kp)
+        }
+        None => {
+            info!("No mesh keypair found. Generating new Curve25519 keypair...");
+            println!("   🔑 Generating new mesh VPN keypair...");
+            let kp = WireGuardKeypair::generate();
+            crypto::save_keypair(data_dir, &kp)?;
+            println!("   ✅ New keypair saved to disk");
+            Ok(kp)
+        }
+    }
+}
+
 fn create_initial_state() -> AgentState {
     let hostname = hostname::get()
         .ok()
@@ -174,6 +284,7 @@ fn create_initial_state() -> AgentState {
         metrics: collect_system_metrics(&mut system),
         last_seen: chrono::Utc::now().to_rfc3339(),
         command_history: Vec::new(),
+        mesh: MeshState::default(),
     }
 }
 
@@ -266,6 +377,7 @@ async fn ensure_login(client: &Client, control_plane_url: &str) -> Result<String
     let login_response: LoginResponse = response.json().await?;
     let auth_state = AuthState { token: login_response.access_token.clone() };
     save_auth_token(&token_path, &auth_state)?;
+    println!("✅ Login successful. Token saved.");
     Ok(login_response.access_token)
 }
 
@@ -304,6 +416,132 @@ async fn maybe_register_service(client: &Client, control_plane_url: &str, token:
         warn!("Service registration failed: {}", response.status());
         Ok(())
     }
+}
+
+fn mesh_public_ip() -> Option<String> {
+    env::var("MESH_PUBLIC_IP")
+        .ok()
+        .or_else(|| env::var("SERVICE_HOST").ok())
+        .filter(|value| !value.is_empty())
+}
+
+fn mesh_public_port() -> u16 {
+    env::var("MESH_PUBLIC_PORT")
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(51820)
+}
+
+async fn join_mesh(
+    client: &Client,
+    control_plane_url: &str,
+    token: &str,
+    agent_state: &mut AgentState,
+) -> Result<()> {
+    let public_ip = match mesh_public_ip() {
+        Some(ip) => ip,
+        None => {
+            warn!("Skipping mesh join: set MESH_PUBLIC_IP to advertise a reachable public address.");
+            return Ok(());
+        }
+    };
+    let public_port = mesh_public_port();
+
+    let payload = MeshJoinPayload {
+        node_id: agent_state.metadata.robot_id.clone(),
+        hostname: agent_state.metadata.hostname.clone(),
+        public_ip: public_ip.clone(),
+        public_port,
+        public_key: agent_state.mesh.public_key.clone(),
+    };
+
+    let endpoint = format!("{}/api/mesh/join", control_plane_url);
+    let response = client
+        .post(&endpoint)
+        .bearer_auth(token)
+        .json(&payload)
+        .send()
+        .await?;
+
+    if !response.status().is_success() {
+        return Err(format!("mesh join failed: {}", response.status()).into());
+    }
+
+    let mesh_response: MeshJoinResponse = response.json().await?;
+    agent_state.mesh = MeshState {
+        mesh_ip: Some(mesh_response.mesh_ip.clone()),
+        public_ip: Some(public_ip),
+        public_port: Some(public_port),
+        subnet: Some(mesh_response.subnet),
+        gateway: Some(mesh_response.gateway),
+        peers: mesh_response.peers,
+        public_key: agent_state.mesh.public_key.clone(),
+    };
+
+    info!(
+        "Joined mesh at {} with {} peer(s)",
+        mesh_response.mesh_ip,
+        agent_state.mesh.peers.len()
+    );
+    Ok(())
+}
+
+async fn refresh_mesh(
+    client: &Client,
+    control_plane_url: &str,
+    token: &str,
+    agent_state: &mut AgentState,
+) -> Result<()> {
+    if agent_state.mesh.mesh_ip.is_none() {
+        return join_mesh(client, control_plane_url, token, agent_state).await;
+    }
+
+    let public_ip = mesh_public_ip().unwrap_or_default();
+    let public_port = mesh_public_port();
+    let payload = MeshHeartbeatPayload {
+        node_id: agent_state.metadata.robot_id.clone(),
+        public_ip,
+        public_port,
+        public_key: agent_state.mesh.public_key.clone(),
+    };
+
+    let endpoint = format!("{}/api/mesh/heartbeat", control_plane_url);
+    let response = client
+        .post(&endpoint)
+        .bearer_auth(token)
+        .json(&payload)
+        .send()
+        .await?;
+
+    if response.status().as_u16() == 404 {
+        return join_mesh(client, control_plane_url, token, agent_state).await;
+    }
+
+    if !response.status().is_success() {
+        return Err(format!("mesh heartbeat failed: {}", response.status()).into());
+    }
+
+    let heartbeat: MeshHeartbeatResponse = response.json().await?;
+    let previous_peer_count = agent_state.mesh.peers.len();
+    agent_state.mesh.mesh_ip = Some(heartbeat.mesh_ip);
+    agent_state.mesh.public_ip = mesh_public_ip();
+    agent_state.mesh.public_port = Some(public_port);
+    agent_state.mesh.peers = heartbeat.peers;
+
+    if agent_state.mesh.peers.len() != previous_peer_count {
+        info!(
+            "Mesh peer list updated: {} online peer(s)",
+            agent_state.mesh.peers.len()
+        );
+        for peer in &agent_state.mesh.peers {
+            info!(
+                "  peer {} ({}) -> mesh {} via {}:{}",
+                peer.hostname, peer.node_id, peer.mesh_ip, peer.public_ip, peer.public_port
+            );
+        }
+    }
+
+    Ok(())
 }
 
 fn load_state(path: &PathBuf) -> Result<AgentState> {

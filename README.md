@@ -1,4 +1,7 @@
-# RobMon: a robot management platform for monitoring, deployment and connectivity. It aims to provide a robust and scalable secure mesh network connection between a fleet of robots. It also provides an easy way for user access management as well as ROS topic and service permissions. 
+# RobMon: a robot management platform for monitoring, deployment and connectivity. It aims to provide a robust and scalable secure mesh network connection between a fleet of robots. It also provides an easy way for user access management as well as ROS topic and service permissions.
+
+> **License**: [PolyForm Noncommercial 1.0.0](LICENSE) — free for non-commercial use.  
+> Commercial licenses available by contacting the licensor.
 
 ## Implementation Strategy
 
@@ -138,10 +141,47 @@ curl -H 'Authorization: Bearer $TOKEN' http://localhost:8080/api/services
 
 ---
 
+## Mesh network (peer discovery)
+
+Authenticated agents can join a private mesh and discover other online nodes. Each node gets a stable private IP from `10.42.0.0/16` (gateway `10.42.0.1`). Public endpoints are advertised directly; NAT hole punching is not required for this step.
+
+### Agent configuration
+
+Set the reachable public endpoint before starting the agent:
+
+```bash
+export MESH_PUBLIC_IP=203.0.113.10
+export MESH_PUBLIC_PORT=51820   # optional, defaults to 51820
+cd agent
+cargo run
+```
+
+The agent logs in, joins the mesh, heartbeats every 10 seconds, and publishes its mesh IP plus discovered peers in robot state.
+
+### Join the mesh
+
+```bash
+curl -X POST http://localhost:8080/api/mesh/join \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer $TOKEN' \
+  -d '{"node_id":"robot-a","hostname":"robot-a","public_ip":"203.0.113.10","public_port":51820}'
+```
+
+### List online peers
+
+```bash
+curl -H 'Authorization: Bearer $TOKEN' 'http://localhost:8080/api/mesh/peers?exclude=robot-a'
+```
+
+Peers that miss a heartbeat for 30 seconds are treated as offline.
+
+---
+
 ## Current feature checklist
 
 - [x] Local robot observability dashboard with live fleet overview and robot detail modal
 - [x] Rust agent that publishes state to the control plane
+- [x] Private mesh IP assignment and authenticated peer discovery
 - [ ] ROS 2 discovery, graph visualization, and remote operations
 - [ ] Software deployment, rollback, and mesh networking with NAT traversal
 - [ ] SSO / 2FA authentication and advanced fleet security policies

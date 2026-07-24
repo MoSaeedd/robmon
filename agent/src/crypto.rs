@@ -1,5 +1,11 @@
 //! WireGuard key management for the RobMon mesh VPN.
 //!
+//! Copyright (c) 2025 RobMon. All rights reserved.
+//! Licensed under the PolyForm Noncommercial License 1.0.0.
+//! See LICENSE file for details.
+//! Commercial licenses available by contacting the licensor.
+//!
+//!
 //! This module handles the full lifecycle of Curve25519 keypairs used for
 //! WireGuard identity:
 //!

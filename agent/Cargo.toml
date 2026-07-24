@@ -3,7 +3,8 @@ name = "robmon-agent"
 version = "0.1.0"
 edition = "2021"
 description = "RobMon Agent - Robot monitoring and management daemon"
-license = "MIT"
+license = "PolyForm-Noncommercial-1.0.0"
+license-file = "../LICENSE"
 repository = "https://github.com/rosmesh/robmon"
 
 [dependencies]
